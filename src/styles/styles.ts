@@ -19,5 +19,20 @@ export const GlobalStyles = createGlobalStyle`
         -ms-user-select: none;
     }
 
+    .game-container {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .game-container canvas {
+        max-width: 100%;
+        max-height: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        display: block;
+    }
 `
 
