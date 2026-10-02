@@ -1,75 +1,53 @@
-# React + TypeScript + Vite
+# 🏴‍☠️ Pirate Battle Game
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A 2D naval battle game built with **React**, **TypeScript**, **Pixi.js**, and **Vite**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🔗 Project Links
 
-## React Compiler
+- **🎮 Live Demo (Deploy):** [https://pirate-battle-six.vercel.app/](https://pirate-battle-six.vercel.app/)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 📖 About the Game
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Pirate Battle Game** puts the player in command of a pirate vessel on the high seas. The main goal is to navigate between islands, engage enemy ships, score points before the session timer runs out, and survive the combat.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ✨ Key Features
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Main Menu:** Quick access to start the game, options menu, and intuitive navigation.
+- **Options Menu:** Real-time game settings adjustment:
+  - Session duration (from 60s to 180s).
+  - Enemy spawn interval (from 1s to 10s).
+- **Pause Menu:** Ability to pause the game, access options, or return to the main menu.
+- **Real-Time HUD:** Continuous display of score and match timer.
 
-```
+---
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## 🎮 Game Controls
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Action | Key / Control |
+| :--- | :--- |
+| **Movement** | Arrow Keys ($\leftarrow \uparrow \rightarrow$) or **WAD** |
+| **Frontal Fire** | Spacebar |
+| **Broadside Fire** | Q (Left) and E (Right) |
+| **Pause Game** | **ESC** or **P** key |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
 
-```
+## 🛠️ Technologies Used
+
+- **Library:** [React](https://react.dev/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Rendering Engine:** [Pixi.js](https://pixijs.com/)
+- **Build Tool:** [Vite](https://vitejs.dev/)
+- **Hosting / Deploy:** [Vercel](https://vercel.com/)
+
+---
+
+**Work in Progress: This is not the final version! New features, bug fixes, and improvements will be added over time.**
+
+> Developed by José Junior Jesus da Silva ⚓
