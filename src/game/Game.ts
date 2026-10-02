@@ -10,11 +10,12 @@ import { HUD } from './ui/HUD';
 import { EnemyManager } from './entities/EnemyManager';
 import { ExplosionEffect } from './entities/ExplosionEffect';
 import { MainMenu } from './ui/MainMenu';
+import { PauseMenu } from './ui/PauseMenu';
+import { OptionsMenu } from './ui/OptionsMenu';
 
 export class GameEngine {
     public app: Application;
     private isDestroyed = false;
-    private isPaused = false;
 
     private gameLayer = new Container();
     private uiLayer = new Container();
@@ -22,8 +23,12 @@ export class GameEngine {
     private waterBackground?: WaterBackground;
     private playerShip?: Ship;
 
-    private gameState: 'menu' | 'playing' = 'menu';
+    private gameState?: 'menu' | 'playing' | 'paused' | 'options';
+    private previousState: 'menu' | 'paused' = 'menu';
+
     private mainMenu?: MainMenu;
+    private pauseMenu?: PauseMenu;
+    private optionsMenu?: OptionsMenu;
 
     private playerCannonballs: Cannonball[] = [];
     private enemyCannonballs: Cannonball[] = [];
@@ -162,7 +167,6 @@ export class GameEngine {
         this.explosionTextures = [explosion1Tex, explosion2Tex, explosion3Tex];
         this.fireTextures = [fire1Tex, fire2Tex];
 
-        // 1. Instância do HUD
         this.hud = new HUD({
             frame: hudFrame,
             counterPanel: hudCounterPanel,
@@ -175,13 +179,11 @@ export class GameEngine {
             iconPause: hudIconPause,
             iconPlay: hudIconPlay,
         });
-        this.hud.visible = false; // Agora funciona pois 'this.hud' foi instanciado
 
         this.hud.onPauseToggle = (isPaused) => {
-            this.isPaused = isPaused;
+            this.setGameState(isPaused ? 'paused' : 'playing');
         };
 
-        // 2. Instância do MainMenu
         this.mainMenu = new MainMenu({
             panel: menuPanelTex,
             title: menuTitleTex,
@@ -195,14 +197,56 @@ export class GameEngine {
         });
 
         this.mainMenu.onPlayClick = () => {
-            this.startGame();
+            this.setGameState('playing');
         };
 
-        // Adiciona elementos à uiLayer
+        this.pauseMenu = new PauseMenu({
+            panel: menuPanelTex,
+            btnPrimaryNormal: btnPrimNormal,
+            btnPrimaryHover: btnPrimHover,
+            btnPrimaryPressed: btnPrimPressed,
+            btnPrimaryDisabled: btnPrimDisabled,
+        });
+
+        this.pauseMenu.onResumeClick = () => {
+            this.setGameState('playing');
+        };
+
+        this.pauseMenu.onOptionsClick = () => {
+            this.setGameState('options');
+        };
+
+        this.pauseMenu.onMainMenuClick = () => {
+            this.setGameState('menu');
+        };
+
+        this.optionsMenu = new OptionsMenu({
+            panel: menuPanelTex,
+            btnPrimaryNormal: btnPrimNormal,
+            btnPrimaryHover: btnPrimHover,
+            btnPrimaryPressed: btnPrimPressed,
+            btnPrimaryDisabled: btnPrimDisabled,
+            btnRoundNormal: hudBtnNormal,
+            btnRoundHover: hudBtnHover,
+            btnRoundPressed: hudBtnPressed,
+        });
+
+        this.optionsMenu.onBackClick = () => {
+            this.setGameState(this.previousState);
+        };
+
         this.uiLayer.addChild(this.hud);
         this.uiLayer.addChild(this.mainMenu);
+        this.uiLayer.addChild(this.pauseMenu);
+        this.uiLayer.addChild(this.optionsMenu);
 
-        // 3. Demais entidades do jogo
+        this.hud.visible = false;
+        this.mainMenu.visible = false;
+        this.pauseMenu.visible = false;
+        this.optionsMenu.visible = false;
+
+        this.setGameState('menu');
+
         this.enemyManager = new EnemyManager(this.gameLayer, {
             chaser: [chaserTex1, chaserTex2],
             shooter: [shooterTex1, shooterTex2, shooterTex3],
@@ -267,17 +311,26 @@ export class GameEngine {
         this.startLoop();
     };
 
-    private startGame() {
-        this.gameState = 'playing';
-        if (this.mainMenu) this.mainMenu.visible = false;
-        if (this.hud) this.hud.visible = true;
+    private setGameState(newState: 'menu' | 'playing' | 'paused' | 'options') {
+        if (this.gameState === newState) return;
+
+        if (newState === 'options') {
+            this.previousState = (this.gameState === 'paused') ? 'paused' : 'menu';
+        }
+
+        this.gameState = newState;
+
+        if (this.hud) this.hud.visible = (newState === 'playing' || newState === 'paused');
+        if (this.mainMenu) this.mainMenu.visible = (newState === 'menu');
+        if (this.pauseMenu) this.pauseMenu.visible = (newState === 'paused');
+        if (this.optionsMenu) this.optionsMenu.visible = (newState === 'options');
     };
 
     private startLoop() {
         this.app.ticker.add((ticker) => {
             const deltaSeconds = ticker.deltaTime / 60;
 
-            if (this.gameState !== 'playing' || this.isPaused) return;
+            if (this.gameState !== 'playing') return;
 
             if (this.hud) {
                 this.hud.updateTimer(deltaSeconds);
