@@ -33,6 +33,7 @@ export const GlobalStyles = createGlobalStyle`
         aspect-ratio: 16 / 9;
         object-fit: contain;
         display: block;
+        border-radius: 6px;
     }
 `
 

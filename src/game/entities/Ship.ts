@@ -19,6 +19,8 @@ export class Ship extends Container {
 
     private keys: Record<string, boolean> = {};
     private sprite: Sprite;
+    private textures: Texture[] = [];
+    private hitFlashTimer = 0;
 
     private broadsideCooldownLeft = 0;
     private broadsideCooldownRight = 0;
@@ -31,10 +33,16 @@ export class Ship extends Container {
     private handleKeyDown = (e: KeyboardEvent) => (this.keys[e.code] = true);
     private handleKeyUp = (e: KeyboardEvent) => (this.keys[e.code] = false);
 
-    constructor(texture: Texture) {
+    constructor(textureOrTextures: Texture | Texture[]) {
         super();
 
-        this.sprite = new Sprite(texture);
+        if (Array.isArray(textureOrTextures)) {
+            this.textures = textureOrTextures;
+        } else {
+            this.textures = [textureOrTextures];
+        }
+
+        this.sprite = new Sprite(this.textures[0]);
         this.sprite.anchor.set(0.5);
         this.sprite.rotation = Math.PI;
         this.sprite.scale.set(0.7);
@@ -56,14 +64,41 @@ export class Ship extends Container {
 
         this.currentHp = Math.max(0, this.currentHp - amount);
 
+        this.sprite.tint = 0xff4444;
+        this.hitFlashTimer = 0.12;
+
+        this.updateDamageState();
+
         if (this.onHpChange) {
             this.onHpChange(this.currentHp, this.maxHp);
-        }
+        };
 
         if (this.currentHp <= 0) {
             this.isDead = true;
-        }
-    }
+        };
+    };
+
+    private updateDamageState() {
+        if (this.textures.length < 2) return;
+
+        const ratio = this.currentHp / this.maxHp;
+
+        if (this.textures.length >= 3) {
+            if (ratio > 0.66) {
+                this.sprite.texture = this.textures[0];
+            } else if (ratio > 0.33) {
+                this.sprite.texture = this.textures[1];
+            } else {
+                this.sprite.texture = this.textures[2];
+            };
+        } else if (this.textures.length === 2) {
+            if (ratio > 0.5) {
+                this.sprite.texture = this.textures[0];
+            } else {
+                this.sprite.texture = this.textures[1];
+            };
+        };
+    };
 
     private createBroadsideShots(side: 'left' | 'right'): ShotInfo[] {
         const shots: ShotInfo[] = [];
@@ -90,12 +125,19 @@ export class Ship extends Container {
                 y: shotY,
                 rotation: shotRotation,
             });
-        }
+        };
 
         return shots;
     };
 
     public update(deltaSeconds: number) {
+        if (this.hitFlashTimer > 0) {
+            this.hitFlashTimer -= deltaSeconds;
+            if (this.hitFlashTimer <= 0) {
+                this.sprite.tint = 0xffffff;
+            }
+        }
+
         if (this.frontShootCooldown > 0) this.frontShootCooldown -= deltaSeconds;
         if (this.broadsideCooldownLeft > 0) this.broadsideCooldownLeft -= deltaSeconds;
         if (this.broadsideCooldownRight > 0) this.broadsideCooldownRight -= deltaSeconds;
@@ -159,6 +201,7 @@ export class Ship extends Container {
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public destroy(options?: any) {
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);

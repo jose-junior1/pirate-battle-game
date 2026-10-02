@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { GameEngine } from '../../game/Game';
 import styled from 'styled-components';
 
+import { GameEngine } from '../../game/Game';
+import colors from '../../styles/colors';
+
 const Container = styled.div`
-    background-color: #000;
+    background-color: ${colors.oceanBlue};
 `;
 
 export const GameContainer = () => {

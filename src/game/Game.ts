@@ -1,4 +1,4 @@
-import { Application, Assets, Texture } from 'pixi.js';
+import { Application, Assets, Container, Texture } from 'pixi.js';
 
 import { GAME_CONFIG, ISLAND_GRID } from './config';
 import { Ship } from './entities/Ship';
@@ -7,15 +7,28 @@ import { IslandMap } from './entities/IslandMap';
 import { Cannonball } from "./entities/Cannonball";
 import { sound } from "./utils/SoundManager";
 import { HUD } from './ui/HUD';
+import { EnemyManager } from './entities/EnemyManager';
+import { ExplosionEffect } from './entities/ExplosionEffect';
 
 export class GameEngine {
     public app: Application;
     private isDestroyed = false;
+    private isPaused = false;
+
+    private gameLayer = new Container();
+    private uiLayer = new Container();
+
     private waterBackground?: WaterBackground;
     private playerShip?: Ship;
-    private cannonballs: Cannonball[] = [];
+
+    private playerCannonballs: Cannonball[] = [];
+    private enemyCannonballs: Cannonball[] = [];
+
     private cannonballTexture?: Texture;
     private explosionTextures: Texture[] = [];
+    private fireTextures: Texture[] = [];
+    private enemyManager?: EnemyManager;
+    private hud?: HUD;
 
     constructor() {
         this.app = new Application();
@@ -27,15 +40,13 @@ export class GameEngine {
 
         await Promise.all(
             uniqueIds.map(async (id) => {
-                const texture = await Assets.load(`/public/assets/png/default/tiles/tile_${id}.png`);
+                const texture = await Assets.load(`/assets/png/default/tiles/tile_${id}.png`);
                 textureMap.set(id, texture);
             })
         );
 
         return textureMap;
     };
-
-    private hud?: HUD;
 
     public async init(container: HTMLDivElement) {
         sound.setupAudioUnlock();
@@ -45,6 +56,63 @@ export class GameEngine {
         sound.load('ship_explosion_1', '/assets/sounds/ship_explosion_1.wav');
         sound.load('water_hit', '/assets/sounds/cannonball_water_hit_1.wav');
         sound.load('ocean_ambience', '/assets/sounds/ocean_ambience_loop.wav');
+
+        const [
+            shipTex1, shipTex2, shipTex3,
+            shooterTex1, shooterTex2, shooterTex3,
+            chaserTex1, chaserTex2,
+            waterTexture,
+            cannonballTex,
+            tileTextures,
+            explosion1Tex,
+            explosion2Tex,
+            explosion3Tex,
+            fire1Tex,
+            fire2Tex,
+            hudFrame,
+            hudHeart,
+            hudCounterPanel,
+            hudIconScore,
+            hudIconTime,
+            hudBtnNormal,
+            hudBtnHover,
+            hudBtnPressed,
+            hudIconPause,
+            hudIconPlay
+        ] = await Promise.all([
+            // Player textures
+            Assets.load('/assets/png/default/ships/ship_1.png'),
+            Assets.load('/assets/png/default/ships/ship_7.png'),
+            Assets.load('/assets/png/default/ships/ship_13.png'),
+
+            // Shooter enemy textures
+            Assets.load('/assets/png/default/ships/ship_3.png'),
+            Assets.load('/assets/png/default/ships/ship_9.png'),
+            Assets.load('/assets/png/default/ships/ship_15.png'),
+
+            // Chaser enemy textures
+            Assets.load('/assets/png/default/ships/ship_22.png'),
+            Assets.load('/assets/png/default/ships/ship_19.png'),
+
+            Assets.load('/assets/png/default/tiles/tile_73.png'),
+            Assets.load('/assets/png/default/ship_parts/cannon_ball.png'),
+            this.loadTileTextures(ISLAND_GRID),
+            Assets.load('/assets/png/default/effects/explosion_1.png'),
+            Assets.load('/assets/png/default/effects/explosion_2.png'),
+            Assets.load('/assets/png/default/effects/explosion_3.png'),
+            Assets.load('/assets/png/default/effects/fire_1.png'),
+            Assets.load('/assets/png/default/effects/fire_2.png'),
+            Assets.load('/assets/png/default/ui/hud/health_frame.png'),
+            Assets.load('/assets/png/default/ui/hud/icon_heart.png'),
+            Assets.load('/assets/png/default/ui/hud/counter_panel.png'),
+            Assets.load('/assets/png/default/ui/hud/icon_score.png'),
+            Assets.load('/assets/png/default/ui/hud/icon_time.png'),
+            Assets.load('/assets/png/default/ui/controls/button_round_normal.png'),
+            Assets.load('/assets/png/default/ui/controls/button_round_hover.png'),
+            Assets.load('/assets/png/default/ui/controls/button_round_pressed.png'),
+            Assets.load('/assets/png/default/ui/controls/icon_pause.png'),
+            Assets.load('/assets/png/default/ui/controls/icon_play.png'),
+        ]);
 
         await this.app.init({
             width: GAME_CONFIG.CANVAS_WIDTH,
@@ -56,61 +124,74 @@ export class GameEngine {
 
         if (this.isDestroyed) {
             this.app.destroy(true, { children: true });
-            return
-        }
+            return;
+        };
 
         container.appendChild(this.app.canvas);
 
         sound.playLoop('ocean_ambience', 0.15);
 
-        const [
-            waterTexture,
-            shipTexture,
-            cannonballTex,
-            tileTextures,
-            explosion1Tex,
-            explosion2Tex,
-            explosion3Tex,
-            hudFrame,
-            hudGreen,
-            hudAmber,
-            hudRed,
-            hudHeart
-        ] = await Promise.all([
-            Assets.load('/assets/png/default/tiles/tile_73.png'),
-            Assets.load('/assets/png/default/ships/ship_1.png'),
-            Assets.load('/assets/png/default/ship_parts/cannon_ball.png'),
-            this.loadTileTextures(ISLAND_GRID),
-            Assets.load('/assets/png/default/effects/explosion_1.png'),
-            Assets.load('/assets/png/default/effects/explosion_2.png'),
-            Assets.load('/assets/png/default/effects/explosion_3.png'),
-            Assets.load('/assets/png/default/ui/hud/health_frame.png'),
-            Assets.load('/assets/png/default/ui/hud/health_fill_green.png'),
-            Assets.load('/assets/png/default/ui/hud/health_fill_amber.png'),
-            Assets.load('/assets/png/default/ui/hud/health_fill_red.png'),
-            Assets.load('/assets/png/default/ui/hud/icon_heart.png'),
-        ]);
-
         if (this.isDestroyed) return;
+
+        this.app.stage.addChild(this.gameLayer);
+        this.app.stage.addChild(this.uiLayer);
 
         this.cannonballTexture = cannonballTex;
         this.explosionTextures = [explosion1Tex, explosion2Tex, explosion3Tex];
+        this.fireTextures = [fire1Tex, fire2Tex];
+
+        this.enemyManager = new EnemyManager(this.gameLayer, {
+            chaser: [chaserTex1, chaserTex2],
+            shooter: [shooterTex1, shooterTex2, shooterTex3],
+            explosions: this.explosionTextures,
+            fire: this.fireTextures,
+        });
+
+        this.enemyManager.onEnemyShoot = (shot) => {
+            if (!this.cannonballTexture) return;
+
+            const flash = new ExplosionEffect(this.fireTextures, shot.x, shot.y, 0.5);
+            this.gameLayer.addChild(flash);
+
+            const ball = new Cannonball(
+                this.cannonballTexture,
+                shot.x, shot.y,
+                shot.rotation,
+                this.explosionTextures,
+                this.gameLayer
+            );
+            this.enemyCannonballs.push(ball);
+            this.gameLayer.addChild(ball);
+        };
+
+        this.enemyManager.onEnemyDestroyed = (points) => {
+            this.hud?.addScore(points);
+        };
 
         this.waterBackground = new WaterBackground(waterTexture);
-        this.app.stage.addChild(this.waterBackground);
+        this.gameLayer.addChild(this.waterBackground);
 
         const islandMap = new IslandMap(ISLAND_GRID, tileTextures);
-        this.app.stage.addChild(islandMap);
+        this.gameLayer.addChild(islandMap);
 
-        this.playerShip = new Ship(shipTexture);
+        this.playerShip = new Ship([shipTex1, shipTex2, shipTex3]);
 
         this.hud = new HUD({
             frame: hudFrame,
-            fillGreen: hudGreen,
-            fillAmber: hudAmber,
-            fillRed: hudRed,
-            iconHeart: hudHeart
+            counterPanel: hudCounterPanel,
+            iconHeart: hudHeart,
+            iconScore: hudIconScore,
+            iconTime: hudIconTime,
+            buttonNormal: hudBtnNormal,
+            buttonHover: hudBtnHover,
+            buttonPressed: hudBtnPressed,
+            iconPause: hudIconPause,
+            iconPlay: hudIconPlay,
         });
+
+        this.hud.onPauseToggle = (isPaused) => {
+            this.isPaused = isPaused;
+        };
 
         this.playerShip.onHpChange = (currentHp, maxHp) => {
             this.hud?.updateHealth(currentHp, maxHp);
@@ -120,27 +201,36 @@ export class GameEngine {
             if (!this.cannonballTexture) return;
 
             shots.forEach((shot) => {
+                const flash = new ExplosionEffect(this.fireTextures, shot.x, shot.y, 0.5);
+                this.gameLayer.addChild(flash);
+
                 const ball = new Cannonball(
                     this.cannonballTexture!,
                     shot.x, shot.y,
                     shot.rotation,
                     this.explosionTextures,
-                    this.app.stage);
-                this.cannonballs.push(ball);
-                this.app.stage.addChild(ball);
+                    this.gameLayer
+                );
+                this.playerCannonballs.push(ball);
+                this.gameLayer.addChild(ball);
             });
         };
 
-        this.app.stage.addChild(this.playerShip);
-
-        this.app.stage.addChild(this.hud);
+        this.gameLayer.addChild(this.playerShip);
+        this.uiLayer.addChild(this.hud);
 
         this.startLoop();
-    }
+    };
 
     private startLoop() {
         this.app.ticker.add((ticker) => {
             const deltaSeconds = ticker.deltaTime / 60;
+
+            if (this.isPaused) return;
+
+            if (this.hud) {
+                this.hud.updateTimer(deltaSeconds);
+            };
 
             if (this.waterBackground) {
                 this.waterBackground.update(deltaSeconds);
@@ -150,23 +240,53 @@ export class GameEngine {
                 this.playerShip.update(deltaSeconds);
             };
 
-            for (let i = this.cannonballs.length - 1; i >= 0; i--) {
-                const ball = this.cannonballs[i];
+            if (this.playerShip && this.enemyManager) {
+                this.enemyManager.update(
+                    deltaSeconds,
+                    this.playerShip,
+                    this.playerCannonballs
+                );
+            };
+
+            for (let i = this.playerCannonballs.length - 1; i >= 0; i--) {
+                const ball = this.playerCannonballs[i];
                 ball.update(deltaSeconds);
 
                 if (ball.isDead) {
-                    this.app.stage.removeChild(ball);
+                    this.gameLayer.removeChild(ball);
                     ball.destroy();
-                    this.cannonballs.splice(i, 1);
+                    this.playerCannonballs.splice(i, 1);
+                };
+            };
+
+            for (let i = this.enemyCannonballs.length - 1; i >= 0; i--) {
+                const ball = this.enemyCannonballs[i];
+                ball.update(deltaSeconds);
+
+                if (this.playerShip && !this.playerShip.isDead && !ball.isDead) {
+                    const dist = Math.hypot(this.playerShip.x - ball.x, this.playerShip.y - ball.y);
+                    if (dist < 25) {
+                        this.playerShip.takeDamage(15);
+                        ball.isDead = true;
+
+                        const impact = new ExplosionEffect(this.explosionTextures, ball.x, ball.y, 0.7);
+                        this.gameLayer.addChild(impact);
+                    };
+                };
+
+                if (ball.isDead) {
+                    this.gameLayer.removeChild(ball);
+                    ball.destroy();
+                    this.enemyCannonballs.splice(i, 1);
                 };
             };
         });
-    }
+    };
 
     public destroy() {
         this.isDestroyed = true;
         if (this.app.renderer) {
             this.app.destroy(true, { children: true });
-        }
-    }
-}
+        };
+    };
+};

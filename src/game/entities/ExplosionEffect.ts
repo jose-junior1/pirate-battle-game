@@ -5,32 +5,28 @@ export class ExplosionEffect extends AnimatedSprite {
     constructor(textures: Texture[], x: number, y: number, rotation: number) {
         super(textures);
 
-        // Centralizar o ponto de ancoragem
         this.anchor.set(0.5);
         this.x = x;
         this.y = y;
-        this.rotation = rotation; // Herdar a rotação do tiro
+        this.rotation = rotation;
 
-        // Configurações da animação
-        this.loop = false; // Não repetir
-        this.animationSpeed = 0.2; // Velocidade da animação (ajustável)
-        this.scale.set(0.5); // Reduzir o tamanho da explosão para combinar com o jogo
+        this.loop = false;
+        this.animationSpeed = 0.2;
+        this.scale.set(0.5);
 
-        sound.play('shipexplosion_1', 0.4); // Tocar o som da explosão
+        sound.play('shipexplosion_1', 0.4);
 
-        // Ouvir o evento de conclusão para limpar o efeito
         this.onComplete = () => {
-            this.cleanup();
+            this.destroy();
         };
 
-        // Começar a animação imediatamente
         this.play();
     }
 
     private cleanup() {
         if (this.parent) {
-            this.parent.removeChild(this); // Remover do palco
+            this.parent.removeChild(this);
         }
-        this.destroy(); // Limpar da memória
+        this.destroy();
     }
 }
