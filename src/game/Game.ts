@@ -9,6 +9,7 @@ import { sound } from "./utils/SoundManager";
 import { HUD } from './ui/HUD';
 import { EnemyManager } from './entities/EnemyManager';
 import { ExplosionEffect } from './entities/ExplosionEffect';
+import { MainMenu } from './ui/MainMenu';
 
 export class GameEngine {
     public app: Application;
@@ -20,6 +21,9 @@ export class GameEngine {
 
     private waterBackground?: WaterBackground;
     private playerShip?: Ship;
+
+    private gameState: 'menu' | 'playing' = 'menu';
+    private mainMenu?: MainMenu;
 
     private playerCannonballs: Cannonball[] = [];
     private enemyCannonballs: Cannonball[] = [];
@@ -78,7 +82,15 @@ export class GameEngine {
             hudBtnHover,
             hudBtnPressed,
             hudIconPause,
-            hudIconPlay
+            hudIconPlay,
+            menuPanelTex,
+            menuTitleTex,
+            btnPrimNormal,
+            btnPrimHover,
+            btnPrimPressed,
+            btnPrimDisabled,
+            btnSecNormal,
+            btnSecPressed,
         ] = await Promise.all([
             // Player textures
             Assets.load('/assets/png/default/ships/ship_1.png'),
@@ -112,6 +124,16 @@ export class GameEngine {
             Assets.load('/assets/png/default/ui/controls/button_round_pressed.png'),
             Assets.load('/assets/png/default/ui/controls/icon_pause.png'),
             Assets.load('/assets/png/default/ui/controls/icon_play.png'),
+
+            // Main menu textures
+            Assets.load('/assets/png/default/ui/menu/panel_menu.png'),
+            Assets.load('/assets/png/default/ui/menu/title_pirate_battle.png'),
+            Assets.load('/assets/png/default/ui/menu/button_primary_normal.png'),
+            Assets.load('/assets/png/default/ui/menu/button_primary_hover.png'),
+            Assets.load('/assets/png/default/ui/menu/button_primary_pressed.png'),
+            Assets.load('/assets/png/default/ui/menu/button_primary_disabled.png'),
+            Assets.load('/assets/png/default/ui/menu/button_secondary_normal.png'),
+            Assets.load('/assets/png/default/ui/menu/button_secondary_pressed.png'),
         ]);
 
         await this.app.init({
@@ -140,6 +162,47 @@ export class GameEngine {
         this.explosionTextures = [explosion1Tex, explosion2Tex, explosion3Tex];
         this.fireTextures = [fire1Tex, fire2Tex];
 
+        // 1. Instância do HUD
+        this.hud = new HUD({
+            frame: hudFrame,
+            counterPanel: hudCounterPanel,
+            iconHeart: hudHeart,
+            iconScore: hudIconScore,
+            iconTime: hudIconTime,
+            buttonNormal: hudBtnNormal,
+            buttonHover: hudBtnHover,
+            buttonPressed: hudBtnPressed,
+            iconPause: hudIconPause,
+            iconPlay: hudIconPlay,
+        });
+        this.hud.visible = false; // Agora funciona pois 'this.hud' foi instanciado
+
+        this.hud.onPauseToggle = (isPaused) => {
+            this.isPaused = isPaused;
+        };
+
+        // 2. Instância do MainMenu
+        this.mainMenu = new MainMenu({
+            panel: menuPanelTex,
+            title: menuTitleTex,
+            shipIcon: shipTex1,
+            btnPrimaryNormal: btnPrimNormal,
+            btnPrimaryHover: btnPrimHover,
+            btnPrimaryPressed: btnPrimPressed,
+            btnPrimaryDisabled: btnPrimDisabled,
+            btnSecondaryNormal: btnSecNormal,
+            btnSecondaryPressed: btnSecPressed,
+        });
+
+        this.mainMenu.onPlayClick = () => {
+            this.startGame();
+        };
+
+        // Adiciona elementos à uiLayer
+        this.uiLayer.addChild(this.hud);
+        this.uiLayer.addChild(this.mainMenu);
+
+        // 3. Demais entidades do jogo
         this.enemyManager = new EnemyManager(this.gameLayer, {
             chaser: [chaserTex1, chaserTex2],
             shooter: [shooterTex1, shooterTex2, shooterTex3],
@@ -176,23 +239,6 @@ export class GameEngine {
 
         this.playerShip = new Ship([shipTex1, shipTex2, shipTex3]);
 
-        this.hud = new HUD({
-            frame: hudFrame,
-            counterPanel: hudCounterPanel,
-            iconHeart: hudHeart,
-            iconScore: hudIconScore,
-            iconTime: hudIconTime,
-            buttonNormal: hudBtnNormal,
-            buttonHover: hudBtnHover,
-            buttonPressed: hudBtnPressed,
-            iconPause: hudIconPause,
-            iconPlay: hudIconPlay,
-        });
-
-        this.hud.onPauseToggle = (isPaused) => {
-            this.isPaused = isPaused;
-        };
-
         this.playerShip.onHpChange = (currentHp, maxHp) => {
             this.hud?.updateHealth(currentHp, maxHp);
         };
@@ -217,16 +263,21 @@ export class GameEngine {
         };
 
         this.gameLayer.addChild(this.playerShip);
-        this.uiLayer.addChild(this.hud);
 
         this.startLoop();
+    };
+
+    private startGame() {
+        this.gameState = 'playing';
+        if (this.mainMenu) this.mainMenu.visible = false;
+        if (this.hud) this.hud.visible = true;
     };
 
     private startLoop() {
         this.app.ticker.add((ticker) => {
             const deltaSeconds = ticker.deltaTime / 60;
 
-            if (this.isPaused) return;
+            if (this.gameState !== 'playing' || this.isPaused) return;
 
             if (this.hud) {
                 this.hud.updateTimer(deltaSeconds);
